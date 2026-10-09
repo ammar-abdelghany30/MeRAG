@@ -15,7 +15,7 @@ flowchart LR
     end
     subgraph Online["Online: per question"]
         E[User question] --> F[Retriever<br/>top-k chunks]
-        D -.search.-> F
+        D <-.search.-> F
         F --> G[Prompt + LLM<br/>OpenRouter free model]
         G --> H[Cited answer<br/>text + sources]
     end
