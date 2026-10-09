@@ -14,7 +14,7 @@ flowchart LR
         C --> D[(Vector store<br/>FAISS + chunks.json)]
     end
     subgraph Online["Online: per question"]
-        E[User question] --> F[Retriever<br/>top-k chunks]
+        E[User question] <-- F[Retriever<br/>top-k chunks]
         D -.search.-> F
         F --> G[Prompt + LLM<br/>OpenRouter free model]
         G --> H[Cited answer<br/>text + sources]
