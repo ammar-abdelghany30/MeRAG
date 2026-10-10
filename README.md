@@ -45,7 +45,9 @@ flowchart LR
 MeRAG/
 ├── data/
 │   └── raw/                 # your own PDFs go here (gitignored)
-│       └── github/          # auto-generated copies of fetched READMEs
+│       └── linkedin_summary.pdf
+        └── MyCV.pdf
+        └── github/           # auto-generated copies of fetched READMEs
 ├── src/
 │   ├── loader.py            # read PDFs + fetch GitHub repos -> Documents
 │   ├── chunking.py          # clean text, split into chunks, keep metadata
