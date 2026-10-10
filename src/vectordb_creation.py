@@ -1,5 +1,6 @@
-"""vectorstore.py - embed chunks, save/load a FAISS index, and search it."""
+"""vectordb_creation.py - embed chunks, save/load a FAISS index, and search it."""
 import json
+import re
 from pathlib import Path
 
 import faiss
@@ -7,25 +8,24 @@ import numpy as np
 from langchain_core.documents import Document
 from sentence_transformers import SentenceTransformer
 
-MODEL_NAME = "BAAI/bge-small-en-v1.5"
+MODEL_NAME = "sentence-transformers/all-MiniLM-L6-v2"
 STORE_DIR = Path("vectorstore")
 INDEX_FILE = STORE_DIR / "index.faiss"
 CHUNKS_FILE = STORE_DIR / "chunks.json"
 
-QUERY_PREFIX = "Represent this sentence for searching relevant passages: "
-
-import re
-
+# Words removed from the query before embedding: the owner's name pulls in
+# header/contact chunks instead of the content being asked about.
 NAME_WORDS = ["ammar", "abdelghany", "mohamed"]
 _NAME_RE = re.compile(r"\b(" + "|".join(NAME_WORDS) + r")\b", re.IGNORECASE)
+
+_model = None
+_store = None  # cached (index, records) so we only read from disk once
+
 
 def _strip_name(query):
     cleaned = _NAME_RE.sub("", query)
     cleaned = re.sub(r"\s+", " ", cleaned).strip()
-    return cleaned or query  
-
-_model = None
-_store = None  
+    return cleaned or query  # if nothing is left, keep the original
 
 
 def _get_model():
@@ -48,7 +48,7 @@ def build_index(chunks):
     STORE_DIR.mkdir(exist_ok=True)
 
     vectors = _embed([c.page_content for c in chunks])
-    index = faiss.IndexFlatIP(vectors.shape[1])  
+    index = faiss.IndexFlatIP(vectors.shape[1])  # inner product == cosine (vectors are normalized)
     index.add(vectors)
     faiss.write_index(index, str(INDEX_FILE))
 
@@ -69,18 +69,29 @@ def _load_store():
     return _store
 
 
-def search(query, k=6):
-    """Return the k most relevant chunks as (Document, similarity_score)."""
+def search(query, k=4, where=None):
+    """Return the k most relevant chunks as (Document, similarity_score).
+
+    where: optional function(metadata) -> bool. If given, only chunks whose
+    metadata passes are returned (e.g. only chunks from the CV).
+    """
     index, records = _load_store()
-    scores, ids = index.search(_embed([QUERY_PREFIX + _strip_name(query)]), k)
+
+    # With a filter, rank ALL chunks and filter afterwards.
+    n = index.ntotal if where else k
+    scores, ids = index.search(_embed([_strip_name(query)]), n)
 
     results = []
     for score, i in zip(scores[0], ids[0]):
-        if i == -1:  # FAISS returns -1 when it has fewer than k results
+        if i == -1:  # FAISS returns -1 when it has fewer results than asked
             continue
         item = records[i]
+        if where and not where(item["metadata"]):
+            continue
         doc = Document(page_content=item["text"], metadata=item["metadata"])
         results.append((doc, float(score)))
+        if len(results) == k:
+            break
     return results
 
 
@@ -92,7 +103,7 @@ if __name__ == "__main__":
     build_index(chunks)
     print(f"Indexed {len(chunks)} chunks -> {INDEX_FILE}")
 
-    query = "Where did Ammar intern and what did he work on?"
+    query = "Does he know SQL?"
     print(f"\nQuery: {query}")
     for doc, score in search(query):
         print(f"\n[{score:.2f}] {doc.metadata}")
