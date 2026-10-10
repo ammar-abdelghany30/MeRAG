@@ -197,11 +197,6 @@ python -m src.chunking    # check the chunk count and metadata
 - **Index and chunk file stay in sync.** Vector *i* in FAISS corresponds to record *i* in `chunks.json`, and both are written together by `build_index()`. The same embedding model must be used for indexing and for questions.
 - **One LLM request per question**, which keeps usage low on free-tier limits.
 
-## Limitations
-
-- **Counting and long lists** ("how many certificates?") need the whole list in the retrieved chunks, so they can be incomplete if the list is split across chunks.
-- **Keyword-style questions** ("does he know SQL?") rely on semantic matching, which can rank a short skills line below longer text on a related topic. The CV reserved slots reduce this, but hybrid keyword search would improve it further.
-- **Free models** can be rate-limited or retired without notice, so keep a few fallback IDs in `OPENROUTER_MODELS`.
 
 ## Privacy
 
